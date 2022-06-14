@@ -68,6 +68,16 @@ async function seed() {
               depositDate: fromNow(-8),
               note: "Will get the rest to you by the due date. Love the cat!",
             },
+            {
+              amount: 1_002.12,
+              depositDate: fromNow(-4),
+              note: "Here's a little more",
+            },
+            {
+              amount: 504.96,
+              depositDate: fromNow(-2),
+              note: "It's not much, sorry!",
+            },
           ],
         },
       ],
@@ -93,6 +103,16 @@ async function seed() {
               amount: 2_000.98,
               depositDate: fromNow(-2),
               note: "Paying off the first squirrel drawing.",
+            },
+            {
+              amount: 496.03,
+              depositDate: fromNow(-1),
+              note: "Half my paycheck :`(",
+            },
+            {
+              amount: 3_109.0,
+              depositDate: fromNow(0),
+              note: "Now we're talking :)",
             },
           ],
         },
@@ -161,8 +181,38 @@ async function seed() {
           deposits: [
             {
               amount: 4_600.65,
-              depositDate: fromNow(-1),
+              depositDate: fromNow(-9),
               note: "This elephant is amazing",
+            },
+            {
+              amount: 400,
+              depositDate: fromNow(-7),
+              note: "Some more",
+            },
+            {
+              amount: 300,
+              depositDate: fromNow(-6),
+              note: "Some more",
+            },
+            {
+              amount: 600,
+              depositDate: fromNow(-5),
+              note: "Some more",
+            },
+            {
+              amount: 200,
+              depositDate: fromNow(-3),
+              note: "Some more",
+            },
+            {
+              amount: 100,
+              depositDate: fromNow(-2),
+              note: "Some more",
+            },
+            {
+              amount: 1000,
+              depositDate: fromNow(-1),
+              note: "Some more",
             },
           ],
         },
