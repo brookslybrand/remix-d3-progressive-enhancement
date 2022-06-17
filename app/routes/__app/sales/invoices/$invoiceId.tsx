@@ -232,17 +232,22 @@ function Deposits() {
     <div>
       <div className="font-bold leading-8">Deposits</div>
       {deposits.length > 0 ? (
-        deposits.map((deposit) => (
-          <div key={deposit.id} className={lineItemClassName}>
-            <Link
-              to={`../../deposits/${deposit.id}`}
-              className="text-blue-600 underline"
-            >
-              {deposit.depositDateFormatted}
-            </Link>
-            <div>{currencyFormatter.format(deposit.amount)}</div>
-          </div>
-        ))
+        <div>
+          {deposits.length > 1 ? (
+            <DepositsLineChart deposits={deposits} />
+          ) : null}
+          {deposits.map((deposit) => (
+            <div key={deposit.id} className={lineItemClassName}>
+              <Link
+                to={`../../deposits/${deposit.id}`}
+                className="text-blue-600 underline"
+              >
+                {deposit.depositDateFormatted}
+              </Link>
+              <div>{currencyFormatter.format(deposit.amount)}</div>
+            </div>
+          ))}
+        </div>
       ) : (
         <div>None yet</div>
       )}
@@ -324,6 +329,55 @@ function Deposits() {
       </newDepositFetcher.Form>
     </div>
   );
+}
+
+type DepositsLineChartProps = {
+  deposits: LoaderData["deposits"];
+};
+
+const width = 200;
+const height = 100;
+const margin = { top: 5, right: 5, bottom: 15, left: 5 };
+
+function DepositsLineChart({ deposits }: DepositsLineChartProps) {
+  const data = calculateCumulativeDeposits(deposits);
+  const firstEntry = data[0];
+  const lastEntry = data[data.length - 1];
+
+  const yScale = (y: number) =>
+    height - ((y - firstEntry.y) / (lastEntry.y - firstEntry.y)) * height;
+  const xScale = (x: number) =>
+    ((x - firstEntry.x) / (lastEntry.x - firstEntry.x)) * width;
+
+  return (
+    <svg
+      width={width + margin.left + margin.right}
+      height={height + margin.top + margin.bottom}
+    >
+      <text x={xScale(lastEntry.x)} y={yScale(lastEntry.y)}>
+        ${lastEntry.y}
+      </text>
+    </svg>
+  );
+}
+
+function calculateCumulativeDeposits(
+  deposits: LoaderData["deposits"]
+): { x: number; y: number }[] {
+  const amountPerDate = new Map<number, number>();
+  for (let { amount, depositDateFormatted } of deposits) {
+    const date = new Date(depositDateFormatted).valueOf();
+    const currentAmount = amountPerDate.get(date) ?? 0;
+    amountPerDate.set(date, currentAmount + amount);
+  }
+
+  const dates = [...amountPerDate.keys()].sort((d1, d2) => d1 - d2);
+
+  let cumulativeAmount = 0;
+  return dates.map((date) => {
+    cumulativeAmount += amountPerDate.get(date) ?? 0;
+    return { x: date, y: cumulativeAmount };
+  });
 }
 
 function LineItemDisplay({
