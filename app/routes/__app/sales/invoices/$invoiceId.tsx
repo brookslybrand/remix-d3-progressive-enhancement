@@ -17,6 +17,8 @@ import type { Deposit } from "~/models/deposit.server";
 import { createDeposit } from "~/models/deposit.server";
 import invariant from "tiny-invariant";
 import { useEffect, useRef } from "react";
+import { scaleTime, scaleLinear } from "d3-scale";
+import { line, curveStepAfter } from "d3-shape";
 
 type LoaderData = {
   customerName: string;
@@ -344,19 +346,70 @@ function DepositsLineChart({ deposits }: DepositsLineChartProps) {
   const firstEntry = data[0];
   const lastEntry = data[data.length - 1];
 
-  const yScale = (y: number) =>
-    height - ((y - firstEntry.y) / (lastEntry.y - firstEntry.y)) * height;
-  const xScale = (x: number) =>
-    ((x - firstEntry.x) / (lastEntry.x - firstEntry.x)) * width;
+  const yScale = scaleLinear()
+    .domain([firstEntry.y, lastEntry.y])
+    .nice()
+    .range([height - margin.bottom, margin.top]);
+  const xScale = scaleTime()
+    .domain([firstEntry.x, lastEntry.x])
+    .range([margin.left, width - margin.right]);
+
+  const lineGenerator = line<{ x: number; y: number }>()
+    .x((d) => xScale(d.x))
+    .y((d) => yScale(d.y))
+    .curve(curveStepAfter);
+
+  const dPath = lineGenerator(data);
 
   return (
     <svg
       width={width + margin.left + margin.right}
       height={height + margin.top + margin.bottom}
     >
-      <text x={xScale(lastEntry.x)} y={yScale(lastEntry.y)}>
-        ${lastEntry.y}
-      </text>
+      <g transform={`translate(${margin.left},${margin.top})`}>
+        {dPath ? (
+          <path
+            className="fill-transparent stroke-blue-300 stroke-1"
+            d={dPath}
+          />
+        ) : null}
+
+        {/* "y-axis" */}
+        <text
+          className="fill-gray-600 text-d-p-xs"
+          x={xScale(firstEntry.x)}
+          y={yScale(firstEntry.y) - margin.top}
+        >
+          {formatAmount(firstEntry.y)}
+        </text>
+        <text
+          className="fill-gray-600 text-d-p-xs"
+          x={xScale(lastEntry.x)}
+          y={yScale(lastEntry.y) - margin.top}
+          textAnchor="end"
+        >
+          {formatAmount(lastEntry.y)}
+        </text>
+
+        {/* x-axis */}
+        <text
+          className="fill-gray-600 text-d-p-xs"
+          x={xScale(firstEntry.x)}
+          y={height}
+          alignmentBaseline="hanging"
+        >
+          {formatDate(firstEntry.x)}
+        </text>
+        <text
+          className="fill-gray-600 text-d-p-xs"
+          x={xScale(lastEntry.x)}
+          y={height}
+          textAnchor="end"
+          alignmentBaseline="hanging"
+        >
+          {formatDate(lastEntry.x)}
+        </text>
+      </g>
     </svg>
   );
 }
@@ -378,6 +431,21 @@ function calculateCumulativeDeposits(
     cumulativeAmount += amountPerDate.get(date) ?? 0;
     return { x: date, y: cumulativeAmount };
   });
+}
+
+function formatAmount(amount: number) {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    currencyDisplay: "narrowSymbol",
+  }).format(amount);
+}
+
+function formatDate(date: number | Date) {
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+  }).format(date);
 }
 
 function LineItemDisplay({
