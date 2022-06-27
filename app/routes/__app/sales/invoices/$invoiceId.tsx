@@ -5,7 +5,6 @@ import {
   useCatch,
   useFetcher,
   useLoaderData,
-  useLocation,
   useParams,
 } from "@remix-run/react";
 import { inputClasses, LabelText, submitButtonClasses } from "~/components";
@@ -16,9 +15,10 @@ import { currencyFormatter, parseDate } from "~/utils";
 import type { Deposit } from "~/models/deposit.server";
 import { createDeposit } from "~/models/deposit.server";
 import invariant from "tiny-invariant";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { scaleTime, scaleLinear } from "d3-scale";
 import { line, curveStepAfter } from "d3-shape";
+import { interpolatePath } from "d3-interpolate-path";
 
 type LoaderData = {
   customerName: string;
@@ -131,9 +131,8 @@ const lineItemClassName =
   "flex justify-between border-t border-gray-100 py-4 text-[14px] leading-[24px]";
 export default function InvoiceRoute() {
   const data = useLoaderData() as LoaderData;
-  const location = useLocation();
   return (
-    <div className="relative p-10" key={location.key}>
+    <div className="relative p-10">
       <Link
         to={`../../customers/${data.customerId}`}
         className="text-[length:14px] font-bold leading-6 text-blue-600 underline"
@@ -359,7 +358,15 @@ function DepositsLineChart({ deposits }: DepositsLineChartProps) {
     .y((d) => yScale(d.y))
     .curve(curveStepAfter);
 
-  const dPath = lineGenerator(data);
+  const d = lineGenerator(data);
+
+  if (d === null) {
+    throw new Error(
+      `Something went wrong: line generation failed with data ${data}`
+    );
+  }
+
+  const dPath = useDPathAnimation(d);
 
   return (
     <svg
@@ -367,12 +374,7 @@ function DepositsLineChart({ deposits }: DepositsLineChartProps) {
       height={height + margin.top + margin.bottom}
     >
       <g transform={`translate(${margin.left},${margin.top})`}>
-        {dPath ? (
-          <path
-            className="fill-transparent stroke-blue-300 stroke-1"
-            d={dPath}
-          />
-        ) : null}
+        <path className="fill-transparent stroke-blue-300 stroke-1" d={dPath} />
 
         {/* "y-axis" */}
         <text
@@ -446,6 +448,35 @@ function formatDate(date: number | Date) {
     month: "short",
     day: "numeric",
   }).format(date);
+}
+
+function useDPathAnimation(dPath: string, durationMs = 200) {
+  const previousDPath = useRef(dPath);
+  const [intermediateDPath, setIntermediateDPath] = useState(dPath);
+
+  useEffect(() => {
+    if (dPath === previousDPath.current) return;
+
+    const pathInterpolator = interpolatePath(previousDPath.current, dPath);
+
+    let t = 0;
+    let rate = 1000 / (60 * durationMs);
+
+    function step() {
+      if (t < 1) {
+        t = Math.min(t + rate, 1);
+        setIntermediateDPath(pathInterpolator(t));
+        window.requestAnimationFrame(step);
+      } else {
+        if (dPath === null) return;
+        previousDPath.current = dPath;
+      }
+    }
+
+    step();
+  }, [dPath, durationMs]);
+
+  return intermediateDPath;
 }
 
 function LineItemDisplay({
