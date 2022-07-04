@@ -6,6 +6,7 @@ import {
   useFetcher,
   useLoaderData,
   useParams,
+  useTransition,
 } from "@remix-run/react";
 import { inputClasses, LabelText, submitButtonClasses } from "~/components";
 import { getInvoiceDetails } from "~/models/invoice.server";
@@ -19,6 +20,8 @@ import { useEffect, useRef, useState } from "react";
 import { scaleTime, scaleLinear } from "d3-scale";
 import { line, curveStepAfter } from "d3-shape";
 import { interpolatePath } from "d3-interpolate-path";
+import clsx from "clsx";
+import { useSpinDelay } from "spin-delay";
 
 type LoaderData = {
   customerName: string;
@@ -127,12 +130,36 @@ export const action: ActionFunction = async ({ request, params }) => {
   }
 };
 
+function usePendingData() {
+  const data = useLoaderData() as LoaderData;
+  const [previousData, setPreviousData] = useState(data);
+  const transition = useTransition();
+
+  const isTransitioning = useSpinDelay(transition.state !== "idle", {
+    delay: 200,
+    minDuration: 1000,
+  });
+
+  useEffect(() => {
+    if (!isTransitioning) {
+      setPreviousData(data);
+    }
+  }, [data, isTransitioning]);
+
+  return {
+    data: previousData,
+    isTransitioning,
+  };
+}
+
 const lineItemClassName =
   "flex justify-between border-t border-gray-100 py-4 text-[14px] leading-[24px]";
 export default function InvoiceRoute() {
-  const data = useLoaderData() as LoaderData;
+  const { data, isTransitioning } = usePendingData();
   return (
-    <div className="relative p-10">
+    <div
+      className={clsx("relative p-10", isTransitioning ? "opacity-50" : null)}
+    >
       <Link
         to={`../../customers/${data.customerId}`}
         className="text-[length:14px] font-bold leading-6 text-blue-600 underline"
@@ -170,7 +197,7 @@ export default function InvoiceRoute() {
         <div>{currencyFormatter.format(data.totalAmount)}</div>
       </div>
       <div className="h-8" />
-      <Deposits />
+      <Deposits deposits={data.deposits} />
     </div>
   );
 }
@@ -185,12 +212,12 @@ interface DepositFormElement extends HTMLFormElement {
   readonly elements: DepositFormControlsCollection;
 }
 
-function Deposits() {
-  const data = useLoaderData() as LoaderData;
+type DepositsProps = Pick<LoaderData, "deposits">;
+function Deposits({ deposits: ogDeposits }: DepositsProps) {
   const newDepositFetcher = useFetcher();
   const formRef = useRef<HTMLFormElement>(null);
 
-  const deposits = [...data.deposits];
+  const deposits = [...ogDeposits];
 
   if (newDepositFetcher.submission) {
     const amount = Number(newDepositFetcher.submission.formData.get("amount"));
